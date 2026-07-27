@@ -122,10 +122,10 @@ jobs:
 
       - name: Build CUDA 13 core wheel once per image and architecture
         run: |
-          mkdir -p dist
+          mkdir -p wheelhouse
           docker run --rm \
             --volume "${GITHUB_WORKSPACE}:/TransformerEngine" \
-            --volume "${GITHUB_WORKSPACE}/dist:/wheelhouse" \
+            --volume "${GITHUB_WORKSPACE}/wheelhouse:/wheelhouse" \
             --workdir /TransformerEngine \
             --env "NVTE_FRAMEWORK=none" \
             --env "NVTE_CUDA_ARCHS=${NVTE_CUDA_ARCHS}" \
@@ -135,6 +135,9 @@ jobs:
             "${IMAGE}" \
             bash build_tools/wheel_utils/build_wheels.sh \
               "manylinux_2_28_${TARGET_ARCH}" false true false false "${CUDA_MAJOR}"
+
+          mkdir -p dist
+          find wheelhouse -maxdepth 1 -type f -name '*.whl' -exec mv -t dist {} +
         env:
           CUDA_MAJOR: "13"
           IMAGE: ${{ steps.image.outputs.image }}
