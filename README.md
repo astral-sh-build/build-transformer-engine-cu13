@@ -7,14 +7,17 @@ Python versions and CPU architectures.
 ## Installation
 
 Following the PyTorch convention, artifacts are published to a separate index
-for each CUDA version. The CUDA 13 core is independent of the Python and
-PyTorch version: one architecture-specific wheel is shared across the
-compatible `cu130`, `cu132` indexes.
+for each CUDA version. Each architecture-specific CUDA 13 core wheel uses
+the same CUDA and PyTorch local version as its corresponding metapackage and
+PyTorch extension. For example,
+`transformer_engine_cu13-2.16.0+cu.13.0.torch.2.10-py3-none-manylinux_2_28_x86_64.whl`
+matches the CUDA 13.0, PyTorch 2.10 extension. Core wheels are shared across
+Python versions.
 
 Once released, pre-built wheels will be available on
 [Astral's GPU indexes](https://wheels.astral.sh/index.html).
 For example, to install the Transformer Engine PyTorch extension and its
-patched CUDA 13 core:
+matching CUDA 13 core:
 
 ```console
 $ uv add 'transformer-engine[pytorch]' --index astral-cu130=https://wheels.astral.sh/simple/cu130/
@@ -40,9 +43,9 @@ Or, with `uv pip`:
 $ uv pip install --index https://wheels.astral.sh/simple/cu130/ 'transformer-engine[pytorch]'
 ```
 
-The core and metapackage apply the same compatibility patch, so either
-installation order retains support for locally versioned PyTorch extension
-wheels.
+The core, metapackage, and PyTorch extension share their complete version, so
+NVIDIA's original version checks and Python files work without compatibility
+patches regardless of installation order.
 
 ## Supported versions
 
@@ -57,9 +60,9 @@ Wheels can be built for the following NVIDIA Transformer Engine versions:
 - [`2.10.0`](https://github.com/NVIDIA/TransformerEngine/releases/tag/v2.10)
 - [`2.9.0`](https://github.com/NVIDIA/TransformerEngine/releases/tag/v2.9)
 
-The native CUDA core is built once per CPU architecture and CUDA major
-version. CUDA 13 wheels are Python-version-independent and use NVIDIA's
-upstream CUDA 13.0 toolchain.
+The native CUDA core is built once per CUDA version, PyTorch version, and CPU
+architecture. The Python-version-independent wheels use the same prebuilt
+PyTorch CUDA manylinux images and build matrix as the PyTorch extension.
 
 ## License
 
