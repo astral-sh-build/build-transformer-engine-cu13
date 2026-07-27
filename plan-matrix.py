@@ -292,21 +292,35 @@ def main() -> None:
             nvte_cuda_archs.append(f"{major}{minor}")
         row["NVTE_CUDA_ARCHS"] = ";".join(nvte_cuda_archs)
 
-    # Pure and core wheels are Python-version-independent, so build each
-    # CUDA, PyTorch, and CPU architecture combination only once.
-    unique_rows = {}
+    # The native core is Torch-independent. Compile once per CUDA image and
+    # CPU architecture, then emit a matching wheel for each Torch version.
+    grouped_rows = {}
     for row in rows:
         if not row["MANYLINUX_CUDA_VERSION"].startswith("13."):
             continue
-        key = (
-            row["MANYLINUX_CUDA_VERSION"],
-            row["MATRIX_TORCH_VERSION"],
-            row["target-arch"],
-        )
-        unique_rows.setdefault(key, row)
-    rows = list(unique_rows.values())
 
-    # For pull requests, build one published-Torch-compatible smoke-test wheel.
+        key = (row["MANYLINUX_CUDA_VERSION"], row["target-arch"])
+        if key not in grouped_rows:
+            grouped_rows[key] = {
+                **row,
+                "MATRIX_TORCH_VERSIONS": [row["MATRIX_TORCH_VERSION"]],
+            }
+            continue
+
+        group = grouped_rows[key]
+        torch_version = row["MATRIX_TORCH_VERSION"]
+        if torch_version not in group["MATRIX_TORCH_VERSIONS"]:
+            group["MATRIX_TORCH_VERSIONS"].append(torch_version)
+
+        cuda_architectures = group["NVTE_CUDA_ARCHS"].split(";")
+        for cuda_architecture in row["NVTE_CUDA_ARCHS"].split(";"):
+            if cuda_architecture not in cuda_architectures:
+                cuda_architectures.append(cuda_architecture)
+        group["NVTE_CUDA_ARCHS"] = ";".join(cuda_architectures)
+
+    rows = list(grouped_rows.values())
+
+    # For pull requests, compile one image and emit all of its Torch versions.
     if os.environ.get("LIMIT_MATRIX") == "1":
         smoke_cuda_version = "13.0"
         rows = [
@@ -314,8 +328,8 @@ def main() -> None:
                 row
                 for row in rows
                 if row["MANYLINUX_CUDA_VERSION"] == smoke_cuda_version
-                and row["MATRIX_TORCH_VERSION"] == "2.10"
                 and row["target-arch"] == "x86_64"
+                and "2.10" in row["MATRIX_TORCH_VERSIONS"]
             )
         ]
 

@@ -60,9 +60,10 @@ Wheels can be built for the following NVIDIA Transformer Engine versions:
 - [`2.10.0`](https://github.com/NVIDIA/TransformerEngine/releases/tag/v2.10)
 - [`2.9.0`](https://github.com/NVIDIA/TransformerEngine/releases/tag/v2.9)
 
-The native CUDA core is built once per CUDA version, PyTorch version, and CPU
-architecture. The Python-version-independent wheels use the same prebuilt
-PyTorch CUDA manylinux images and build matrix as the PyTorch extension.
+The native CUDA core is built once per CUDA version and CPU architecture. Each
+build then produces a separately versioned wheel for every supported PyTorch
+version, reusing the same compiled native libraries, prebuilt PyTorch CUDA
+manylinux image, and build matrix.
 
 ## License
 
