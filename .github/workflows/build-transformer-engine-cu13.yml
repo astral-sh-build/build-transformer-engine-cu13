@@ -171,6 +171,30 @@ jobs:
           version: "0.9.26"
           enable-cache: false
 
+      - name: Verify CUDA 13 core wheel tags
+        run: |
+          expected_tag="py3-none-manylinux_2_28_${TARGET_ARCH}"
+          internal_tag=$(unzip -p "${WHEEL_PATH}" '*/WHEEL' | awk '$1 == "Tag:" {print $2; exit}')
+          if [ -z "${internal_tag}" ]; then
+            echo "Could not determine CUDA 13 core wheel tags" >&2
+            exit 1
+          fi
+
+          if [ "${internal_tag}" != "${expected_tag}" ]; then
+            actual_wheel="${WHEEL_PATH%-${expected_tag}.whl}-${internal_tag}.whl"
+            mv -- "${WHEEL_PATH}" "${actual_wheel}"
+            uvx --from wheel wheel tags \
+              --python-tag py3 \
+              --abi-tag none \
+              --remove "${actual_wheel}"
+          fi
+
+          test -f "${WHEEL_PATH}"
+          unzip -p "${WHEEL_PATH}" '*/WHEEL' | grep -Fx "Tag: ${expected_tag}"
+        env:
+          TARGET_ARCH: ${{ matrix.target-arch }}
+          WHEEL_PATH: ${{ steps.wheel.outputs.path }}
+
       - name: Embed SBOM into wheel
         run: |
           uv run --script build_scripts/embed_patches.py "${WHEEL_PATH}" \
