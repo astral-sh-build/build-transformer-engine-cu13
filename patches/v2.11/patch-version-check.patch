@@ -1,0 +1,18 @@
+diff --git i/transformer_engine/common/__init__.py w/transformer_engine/common/__init__.py
+index 3ffe1c7b..dc89cd78 100644
+--- i/transformer_engine/common/__init__.py
++++ w/transformer_engine/common/__init__.py
+@@ -177,7 +177,12 @@ def load_framework_extension(framework: str) -> None:
+         assert te_installed_via_pypi, "Could not find `transformer-engine` PyPI package."
+         assert te_core_installed, "Could not find TE core package `transformer-engine-cu*`."
+ 
+-        assert version(module_name) == version("transformer-engine") == te_core_version, (
++        # Compare base versions only (strip local version identifiers after '+')
++        module_base_version = version(module_name).split('+')[0]
++        te_base_version = version("transformer-engine").split('+')[0]
++        te_core_base_version = te_core_version.split('+')[0]
++
++        assert module_base_version == te_base_version == te_core_base_version, (
+             "Transformer Engine package version mismatch. Found"
+             f" {module_name} v{version(module_name)}, transformer-engine"
+             f" v{version('transformer-engine')}, and {te_core_package_name}"

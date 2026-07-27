@@ -292,8 +292,8 @@ def main() -> None:
             nvte_cuda_archs.append(f"{major}{minor}")
         row["NVTE_CUDA_ARCHS"] = ";".join(nvte_cuda_archs)
 
-    # The native core is Torch-independent. Compile once per CUDA image and
-    # CPU architecture, then emit a matching wheel for each Torch version.
+    # The native core is Torch-independent. Build one wheel per supported
+    # CUDA version and CPU architecture.
     grouped_rows = {}
     for row in rows:
         if not row["MANYLINUX_CUDA_VERSION"].startswith("13."):
@@ -302,16 +302,15 @@ def main() -> None:
         key = (row["MANYLINUX_CUDA_VERSION"], row["target-arch"])
         if key not in grouped_rows:
             grouped_rows[key] = {
-                **row,
-                "MATRIX_TORCH_VERSIONS": [row["MATRIX_TORCH_VERSION"]],
+                "target-arch": row["target-arch"],
+                "MATRIX_CUDA_VERSION": row["MATRIX_CUDA_VERSION"],
+                "MANYLINUX_CUDA_VERSION": row["MANYLINUX_CUDA_VERSION"],
+                "NVTE_CUDA_ARCHS": row["NVTE_CUDA_ARCHS"],
+                "RUNNER": row["RUNNER"],
             }
             continue
 
         group = grouped_rows[key]
-        torch_version = row["MATRIX_TORCH_VERSION"]
-        if torch_version not in group["MATRIX_TORCH_VERSIONS"]:
-            group["MATRIX_TORCH_VERSIONS"].append(torch_version)
-
         cuda_architectures = group["NVTE_CUDA_ARCHS"].split(";")
         for cuda_architecture in row["NVTE_CUDA_ARCHS"].split(";"):
             if cuda_architecture not in cuda_architectures:
@@ -320,7 +319,7 @@ def main() -> None:
 
     rows = list(grouped_rows.values())
 
-    # For pull requests, compile one image and emit all of its Torch versions.
+    # For pull requests, build a single representative CUDA core wheel.
     if os.environ.get("LIMIT_MATRIX") == "1":
         smoke_cuda_version = "13.0"
         rows = [
@@ -329,7 +328,6 @@ def main() -> None:
                 for row in rows
                 if row["MANYLINUX_CUDA_VERSION"] == smoke_cuda_version
                 and row["target-arch"] == "x86_64"
-                and "2.10" in row["MATRIX_TORCH_VERSIONS"]
             )
         ]
         # Pull-request wheels are validated on an H100; releases retain every SM.
