@@ -332,6 +332,8 @@ def main() -> None:
                 and "2.10" in row["MATRIX_TORCH_VERSIONS"]
             )
         ]
+        # Pull-request wheels are validated on an H100; releases retain every SM.
+        rows[0]["NVTE_CUDA_ARCHS"] = "90"
 
     print(json.dumps(rows))
 
