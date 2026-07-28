@@ -1,0 +1,253 @@
+name: TransformerEngine CUDA 13 Core
+
+permissions: {}
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag"
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || inputs.release_tag || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  plan-matrix:
+    name: Plan TransformerEngine CUDA 13 core build matrix
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-build') }}
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.generate-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v6.0.1
+        with:
+          version: "0.9.26"
+          enable-cache: false
+
+      - name: Generate build matrix
+        id: generate-matrix
+        run: |
+          set -euxo pipefail
+          echo "matrix=$(uv run --script plan-matrix.py)" >> "$GITHUB_OUTPUT"
+        env:
+          LIMIT_MATRIX: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-build') && '1' || '0' }}
+
+  build-wheel:
+    name: Build CUDA 13 core wheel (CUDA ${{ matrix.MANYLINUX_CUDA_VERSION }}, ${{ matrix.target-arch }})
+    needs: [plan-matrix]
+    runs-on: ${{ matrix.RUNNER }}
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-build') }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan-matrix.outputs.matrix) }}
+
+    steps:
+      - name: Determine TransformerEngine version
+        id: transformer-engine-version
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            TRANSFORMER_ENGINE_VERSION=$(sed -E 's/-r[0-9]+$//' <<<"${INPUTS_RELEASE_TAG}")
+          else
+            TRANSFORMER_ENGINE_VERSION="v2.16"
+          fi
+          if [ "${TRANSFORMER_ENGINE_VERSION}" != "v2.16" ]; then
+            echo "Only Transformer Engine v2.16 is supported" >&2
+            exit 1
+          fi
+          echo "version=${TRANSFORMER_ENGINE_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Using TransformerEngine source version: ${TRANSFORMER_ENGINE_VERSION}"
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          INPUTS_RELEASE_TAG: ${{ inputs.release_tag }}
+
+      - name: Checkout TransformerEngine
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          repository: NVIDIA/TransformerEngine
+          ref: ${{ steps.transformer-engine-version.outputs.version }}
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Get source commit SHA
+        id: source-commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout utils
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          path: build_scripts
+          persist-credentials: false
+
+      - name: Apply TransformerEngine compatibility patches
+        run: bash build_scripts/prepare_for_build.sh "${TRANSFORMER_ENGINE_VERSION}"
+        env:
+          TRANSFORMER_ENGINE_VERSION: ${{ steps.transformer-engine-version.outputs.version }}
+
+      - name: Set CUDA core wheel version
+        run: |
+          base_version="$(head -n 1 build_tools/VERSION.txt)"
+          printf '%s+cu.%s\n' \
+            "${base_version}" \
+            "${MANYLINUX_CUDA_VERSION}" > build_tools/VERSION.txt
+          echo "Using TransformerEngine wheel version: $(head -n 1 build_tools/VERSION.txt)"
+        env:
+          MANYLINUX_CUDA_VERSION: ${{ matrix.MANYLINUX_CUDA_VERSION }}
+
+      - name: Select PyTorch CUDA manylinux image
+        id: image
+        run: |
+          if [ "${TARGET_ARCH}" = "aarch64" ]; then
+            image="pytorch/manylinuxaarch64-builder:cuda${MANYLINUX_CUDA_VERSION}"
+          else
+            image="pytorch/manylinux2_28-builder:cuda${MANYLINUX_CUDA_VERSION}"
+          fi
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+        env:
+          MANYLINUX_CUDA_VERSION: ${{ matrix.MANYLINUX_CUDA_VERSION }}
+          TARGET_ARCH: ${{ matrix.target-arch }}
+
+      - name: Pull PyTorch CUDA manylinux image
+        run: docker pull "${IMAGE}"
+        env:
+          IMAGE: ${{ steps.image.outputs.image }}
+
+      - name: Build CUDA 13 core wheel once per image and architecture
+        run: |
+          mkdir -p wheelhouse
+          docker run --rm \
+            --volume "${GITHUB_WORKSPACE}:/TransformerEngine" \
+            --volume "${GITHUB_WORKSPACE}/wheelhouse:/wheelhouse" \
+            --workdir /TransformerEngine \
+            --env "NVTE_FRAMEWORK=none" \
+            --env "NVTE_CUDA_ARCHS=${NVTE_CUDA_ARCHS}" \
+            --env "CUDA_HOME=/usr/local/cuda-${MANYLINUX_CUDA_VERSION}" \
+            --env "LIBRARY_PATH=/usr/lib64" \
+            --env "LD_LIBRARY_PATH=/usr/lib64:/usr/local/cuda-${MANYLINUX_CUDA_VERSION}/lib64:/usr/local/cuda-${MANYLINUX_CUDA_VERSION}/targets/${TARGET_ARCH}-linux/lib:/usr/local/cuda-${MANYLINUX_CUDA_VERSION}/extras/CUPTI/lib64" \
+            "${IMAGE}" \
+            bash build_tools/wheel_utils/build_wheels.sh \
+              "manylinux_2_28_${TARGET_ARCH}" false true false false "${CUDA_MAJOR}"
+
+          mkdir -p dist
+          find wheelhouse -maxdepth 1 -type f -name '*.whl' -exec mv -t dist {} +
+        env:
+          CUDA_MAJOR: "13"
+          IMAGE: ${{ steps.image.outputs.image }}
+          MANYLINUX_CUDA_VERSION: ${{ matrix.MANYLINUX_CUDA_VERSION }}
+          NVTE_CUDA_ARCHS: ${{ matrix.NVTE_CUDA_ARCHS }}
+          TARGET_ARCH: ${{ matrix.target-arch }}
+
+      - name: Identify CUDA 13 core wheel
+        id: wheel
+        run: |
+          wheel=$(find dist -maxdepth 1 -type f -name "transformer_engine_cu13-*-py3-none-manylinux_2_28_${TARGET_ARCH}.whl" -print -quit)
+          if [ -z "${wheel}" ]; then
+            echo "No compatible CUDA 13 core wheel was built" >&2
+            find dist -maxdepth 2 -type f -print
+            exit 1
+          fi
+          echo "path=${wheel}" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "${wheel}")" >> "$GITHUB_OUTPUT"
+        env:
+          TARGET_ARCH: ${{ matrix.target-arch }}
+
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v6.0.1
+        with:
+          version: "0.9.26"
+          enable-cache: false
+
+      - name: Verify CUDA 13 core wheel tags
+        run: |
+          expected_tag="py3-none-manylinux_2_28_${TARGET_ARCH}"
+          internal_tag=$(unzip -p "${WHEEL_PATH}" '*/WHEEL' | awk '$1 == "Tag:" {print $2; exit}')
+          if [ -z "${internal_tag}" ]; then
+            echo "Could not determine CUDA 13 core wheel tags" >&2
+            exit 1
+          fi
+
+          if [ "${internal_tag}" != "${expected_tag}" ]; then
+            actual_wheel="${WHEEL_PATH%-${expected_tag}.whl}-${internal_tag}.whl"
+            mv -- "${WHEEL_PATH}" "${actual_wheel}"
+            uvx --from wheel wheel tags \
+              --python-tag py3 \
+              --abi-tag none \
+              --remove "${actual_wheel}"
+          fi
+
+          test -f "${WHEEL_PATH}"
+          unzip -p "${WHEEL_PATH}" '*/WHEEL' | grep -Fx "Tag: ${expected_tag}"
+        env:
+          TARGET_ARCH: ${{ matrix.target-arch }}
+          WHEEL_PATH: ${{ steps.wheel.outputs.path }}
+
+      - name: Embed SBOM into wheel
+        run: |
+          uv run --script build_scripts/embed_patches.py "${WHEEL_PATH}" \
+            "build_scripts/patches/${TRANSFORMER_ENGINE_VERSION}" \
+            --license-expression "Apache-2.0" \
+            --license-file "LICENSE:LICENSE" \
+            --source-repo "https://github.com/NVIDIA/TransformerEngine" \
+            --source-tag "${TRANSFORMER_ENGINE_VERSION}" \
+            --source-commit "${SOURCE_COMMIT}" \
+            --build-repo "https://github.com/astral-sh-build/build-transformer-engine-cu13" \
+            --build-commit "${BUILD_COMMIT}"
+        env:
+          WHEEL_PATH: ${{ steps.wheel.outputs.path }}
+          TRANSFORMER_ENGINE_VERSION: ${{ steps.transformer-engine-version.outputs.version }}
+          SOURCE_COMMIT: ${{ steps.source-commit.outputs.sha }}
+          BUILD_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Log built wheel
+        run: ls -lh "${WHEEL_PATH}"
+        env:
+          WHEEL_PATH: ${{ steps.wheel.outputs.path }}
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ steps.wheel.outputs.name }}
+          path: ${{ steps.wheel.outputs.path }}
+          if-no-files-found: error
+
+  create-release:
+    name: Create release
+    if: github.event_name == 'workflow_dispatch'
+    needs: [build-wheel]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download wheels
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: >-
+          gh release create "${RELEASE_TAG}" ./dist/*.whl
+          --target "${GITHUB_SHA}"
+          --title "${RELEASE_TAG}"
+          --notes ""
+          --repo "${GITHUB_REPOSITORY}"
