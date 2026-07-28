@@ -1,7 +1,6 @@
-diff --git i/transformer_engine/common/__init__.py w/transformer_engine/common/__init__.py
-index 3ffe1c7b..dc89cd78 100644
---- i/transformer_engine/common/__init__.py
-+++ w/transformer_engine/common/__init__.py
+diff --git a/transformer_engine/common/__init__.py b/transformer_engine/common/__init__.py
+--- a/transformer_engine/common/__init__.py
++++ b/transformer_engine/common/__init__.py
 @@ -177,7 +177,12 @@ def load_framework_extension(framework: str) -> None:
          assert te_installed_via_pypi, "Could not find `transformer-engine` PyPI package."
          assert te_core_installed, "Could not find TE core package `transformer-engine-cu*`."
@@ -16,3 +15,12 @@ index 3ffe1c7b..dc89cd78 100644
              "Transformer Engine package version mismatch. Found"
              f" {module_name} v{version(module_name)}, transformer-engine"
              f" v{version('transformer-engine')}, and {te_core_package_name}"
+@@ -204,7 +209,7 @@ def sanity_checks_for_pypi_installation() -> None:
+     # If the core package is installed via PyPI.
+     if te_core_installed:
+         assert te_installed_via_pypi, "Could not find `transformer-engine` PyPI package."
+-        assert version("transformer-engine") == te_core_version, (
++        assert version("transformer-engine").split("+")[0] == te_core_version.split("+")[0], (
+             "Transformer Engine package version mismatch. Found "
+             f"transformer-engine v{version('transformer-engine')} "
+             f"and {te_core_package_name} v{te_core_version}."
