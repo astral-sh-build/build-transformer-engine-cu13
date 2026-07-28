@@ -133,6 +133,7 @@ jobs:
             --volume "${GITHUB_WORKSPACE}:/TransformerEngine" \
             --volume "${GITHUB_WORKSPACE}/wheelhouse:/wheelhouse" \
             --workdir /TransformerEngine \
+            --env "MAX_JOBS=8" \
             --env "NVTE_FRAMEWORK=none" \
             --env "NVTE_CUDA_ARCHS=${NVTE_CUDA_ARCHS}" \
             --env "CUDA_HOME=/usr/local/cuda-${MANYLINUX_CUDA_VERSION}" \
