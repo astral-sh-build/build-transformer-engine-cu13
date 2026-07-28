@@ -65,6 +65,10 @@ jobs:
           else
             TRANSFORMER_ENGINE_VERSION="v2.16"
           fi
+          if [ "${TRANSFORMER_ENGINE_VERSION}" != "v2.16" ]; then
+            echo "Only Transformer Engine v2.16 is supported" >&2
+            exit 1
+          fi
           echo "version=${TRANSFORMER_ENGINE_VERSION}" >> "$GITHUB_OUTPUT"
           echo "Using TransformerEngine source version: ${TRANSFORMER_ENGINE_VERSION}"
         env:
