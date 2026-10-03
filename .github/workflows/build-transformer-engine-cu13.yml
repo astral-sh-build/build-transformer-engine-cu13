@@ -63,7 +63,7 @@ jobs:
           if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
             TRANSFORMER_ENGINE_VERSION=$(sed -E 's/-r[0-9]+$//' <<<"${INPUTS_RELEASE_TAG}")
           else
-            TRANSFORMER_ENGINE_VERSION="v2.16.1"
+            TRANSFORMER_ENGINE_VERSION="v2.17"
           fi
           echo "version=${TRANSFORMER_ENGINE_VERSION}" >> "$GITHUB_OUTPUT"
           echo "Using TransformerEngine source version: ${TRANSFORMER_ENGINE_VERSION}"
