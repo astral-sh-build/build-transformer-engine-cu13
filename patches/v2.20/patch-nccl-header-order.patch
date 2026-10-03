@@ -1,0 +1,11 @@
+--- a/3rdparty/nccl-extensions/nccl_ep/Makefile
++++ b/3rdparty/nccl-extensions/nccl_ep/Makefile
+@@ -101,6 +101,8 @@
+ # The ncclEp* API is in nccl_ep.cc (compiled with CXXFLAGS), so it still gets exported.
+ NVCUFLAGS := $(NVCC_GENCODE) --extended-lambda $(NCCL_EP_DEVICE_INCFLAGS) --expt-relaxed-constexpr --compiler-options "-fPIC -fvisibility=hidden" -ccbin $(NVCC_CXX_COMPILER) $(CXXSTD)
+ CXXFLAGS += $(INCFLAGS) $(NCCL_EP_JIT_DEFS) -fvisibility=default
++# Prefer the selected NCCL over headers bundled in the CUDA toolkit.
++CXXFLAGS := -I$(NCCL_INCDIR) $(CXXFLAGS)
+
+ # Optional warp-level timing instrumentation (adds cudaMalloc + cudaMemcpy per kernel launch).
+ # Usage: make WARP_TIMING=1
