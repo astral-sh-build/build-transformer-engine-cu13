@@ -63,7 +63,7 @@ jobs:
           if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
             TRANSFORMER_ENGINE_VERSION=$(sed -E 's/-r[0-9]+$//' <<<"${INPUTS_RELEASE_TAG}")
           else
-            TRANSFORMER_ENGINE_VERSION="v2.16.1"
+            TRANSFORMER_ENGINE_VERSION="v2.17"
           fi
           echo "version=${TRANSFORMER_ENGINE_VERSION}" >> "$GITHUB_OUTPUT"
           echo "Using TransformerEngine source version: ${TRANSFORMER_ENGINE_VERSION}"
@@ -136,8 +136,8 @@ jobs:
             --env "LIBRARY_PATH=/usr/lib64" \
             --env "LD_LIBRARY_PATH=/usr/lib64:/usr/local/cuda-${MANYLINUX_CUDA_VERSION}/lib64:/usr/local/cuda-${MANYLINUX_CUDA_VERSION}/targets/${TARGET_ARCH}-linux/lib:/usr/local/cuda-${MANYLINUX_CUDA_VERSION}/extras/CUPTI/lib64" \
             "${IMAGE}" \
-            bash build_tools/wheel_utils/build_wheels.sh \
-              "manylinux_2_28_${TARGET_ARCH}" false true false false "${CUDA_MAJOR}"
+            bash build_scripts/build_core.sh \
+              "manylinux_2_28_${TARGET_ARCH}" "${CUDA_MAJOR}"
 
           mkdir -p dist
           find wheelhouse -maxdepth 1 -type f -name '*.whl' -exec mv -t dist {} +
