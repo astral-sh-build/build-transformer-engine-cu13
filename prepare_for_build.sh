@@ -2,7 +2,7 @@
 # Script to prepare the build environment for Transformer Engine (CUDA 13 core).
 #
 # Example usage:
-#   ./prepare_for_build.sh v2.18
+#   ./prepare_for_build.sh v2.19
 
 set -euxo pipefail
 
@@ -10,7 +10,7 @@ export ROOT=`pwd`
 
 if [ $# -ne 1 ]; then
     echo "Usage: $0 <transformer_engine_version>"
-    echo "Example: $0 v2.18"
+    echo "Example: $0 v2.19"
     exit 1
 fi
 
