@@ -55,6 +55,19 @@ The native CUDA core is built once per CUDA version and CPU architecture using
 the corresponding pre-built PyTorch CUDA manylinux image. The resulting wheel is
 independent of the PyTorch and Python versions.
 
+## Publishing a release
+
+Create the release tag at the validated build commit, push it, then dispatch
+`build-transformer-engine-cu13.yml` from that tag with the same `release_tag`
+input. The workflow checks that the tag points to its build commit before
+building.
+
+If every wheel build succeeded but publishing failed, dispatch
+`publish-wheels.yml` with the existing `release_tag` and original
+`build_run_id`. The publishing workflow checks the build's commit, workflow, and
+successful wheel jobs before downloading its artifacts. It verifies the wheel
+count and publishes without changing the tag or rebuilding the wheels.
+
 ## License
 
 build-transformer-engine-cu13 is licensed under the

@@ -26,6 +26,16 @@ jobs:
     outputs:
       matrix: ${{ steps.generate-matrix.outputs.matrix }}
     steps:
+      - name: Verify release tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          tag_commit=$(gh api "repos/${GITHUB_REPOSITORY}/commits/refs/tags/${RELEASE_TAG}" --jq .sha)
+          test "${tag_commit}" = "${GITHUB_SHA}"
+
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
@@ -244,7 +254,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: >-
           gh release create "${RELEASE_TAG}" ./dist/*.whl
-          --target "${GITHUB_SHA}"
+          --verify-tag
           --title "${RELEASE_TAG}"
           --notes ""
           --repo "${GITHUB_REPOSITORY}"
