@@ -8,6 +8,7 @@ python=/opt/python/cp310-cp310/bin/python
 "${python}" -m pip install "nvidia-nccl-cu${cuda_major}==2.30.7"
 NCCL_HOME=$("${python}" -c 'import nvidia.nccl; print(next(iter(nvidia.nccl.__path__)))')
 export NCCL_HOME
+ln -sf libnccl.so.2 "${NCCL_HOME}/lib/libnccl.so"
 # NCCL wheels provide the versioned shared library without a linker symlink.
 export NVTE_CMAKE_EXTRA_ARGS="${NVTE_CMAKE_EXTRA_ARGS:-} -DNCCL_LIB=${NCCL_HOME}/lib/libnccl.so.2"
 export CMAKE_PREFIX_PATH="${NCCL_HOME}:${CMAKE_PREFIX_PATH:-}"
