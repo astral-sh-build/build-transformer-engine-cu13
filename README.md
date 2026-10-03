@@ -9,7 +9,7 @@ CUDA versions and CPU architectures.
 Following the PyTorch convention, artifacts are published to a separate index
 for each CUDA version. Each architecture-specific CUDA 13 core wheel has a CUDA
 local version and is shared across PyTorch and Python versions. For example,
-`transformer_engine_cu13-2.17.0+cu.13.0-py3-none-manylinux_2_28_x86_64.whl`
+`transformer_engine_cu13-2.17.1+cu.13.0-py3-none-manylinux_2_28_x86_64.whl`
 provides the CUDA 13.0 core for every supported PyTorch version.
 
 Once released, pre-built wheels will be available on
@@ -49,7 +49,7 @@ installation order.
 
 Wheels can be built for the following NVIDIA Transformer Engine version:
 
-- [`2.17.0`](https://github.com/astral-sh-build/build-transformer-engine-cu13/releases/tag/v2.17)
+- [`2.17.1`](https://github.com/astral-sh-build/build-transformer-engine-cu13/releases/tag/v2.17.1)
 
 The native CUDA core is built once per CUDA version and CPU architecture using
 the corresponding pre-built PyTorch CUDA manylinux image. The resulting wheel is
