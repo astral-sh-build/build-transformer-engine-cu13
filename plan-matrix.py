@@ -10,7 +10,7 @@ import os
 
 from packaging.version import Version
 
-# Transformer Engine v2.19 supports Python 3.10+, PyTorch 2.1+, and CUDA 12+.
+# Transformer Engine v2.20 supports Python 3.10+, PyTorch 2.1+, and CUDA 12+.
 MIN_PYTHON_VERSION = "3.10"
 
 TRANSFORMER_ENGINE_SUPPORTED_TORCH_VERSIONS = [
